@@ -124,9 +124,6 @@ sys_shmem_access(void)
   int page_number;
   if(argint(0, &page_number) < 0)
     return -1;
-  // return early if the proc already has a shared page
-  if(proc->shared)
-    return (int)proc->shared->p;
   return (int)shmem_access(page_number);
 }
 

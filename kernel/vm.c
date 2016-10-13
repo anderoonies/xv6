@@ -232,7 +232,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   char *mem;
   uint a;
 
-  if(newsz > USERTOP)
+  if(newsz - 0x1000 > USERTOP)
     return 0;
   if(newsz < oldsz)
     return oldsz;
@@ -371,37 +371,33 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 // Struct for keeping track of shared memory
 struct {
   struct spinlock lock;
-  struct shared shared[] = {
-    {(void*)(USERTOP-4*PGSIZE), (void*)(USERTOP-3*PGSIZE), 0},
-    {(void*)(USERTOP-3*PGSIZE), (void*)(USERTOP-2*PGSIZE), 0},
-    {(void*)(USERTOP-2*PGSIZE), (void*)(USERTOP-1*PGSIZE), 0},
-    {(void*)(USERTOP-1*PGSIZE), (void*)(USERTOP), 0},
-  };
+  struct shared_page pages[4];
 } sharedtable;
 
 void shmeminit()
 {
   initlock(&sharedtable.lock, "shared");
-  acquire(&sharedtable.lock);
 }
 
 void*
 shmem_access(int page_number)
 {
-  struct shared *shared;
-  shared = setup_shmem(page_number);
+  struct shared_page *page;
+  page = setup_shmem(page_number);
+  return page;
 }
 
 // Set up the shared memory in the page table
-struct shared *
+struct shared_page *
 setup_shmem(int page_number)
 {
-  void *mem;
-  struct shared *shared;
-  struct shmemmap *shm;
+  char *mem;
+  struct shared_page *page = NULL;
   acquire(&sharedtable.lock);
-  if(&shmemmap[page_number]->ref_count == 0)
-    shm = &shmemmap[page_number]
+  // if the page is free (or we own it!) we'll use this one
+  if(sharedtable.pages[page_number].ref_count == 0 ||
+      shares_page(proc, &sharedtable.pages[page_number]))
+    page = &sharedtable.pages[page_number];
 
   // allocate physical memory
   mem = kalloc();
@@ -410,29 +406,37 @@ setup_shmem(int page_number)
     release(&sharedtable.lock);
     return 0;
   }
+  
+  // store this in the shared memory page
+  sharedtable.pages[page_number].addr = mem;
+
+  // map the page to physical memory
+  if(mappages(proc->pgdir, page->addr, PGSIZE, (uint)mem, PTE_W)<0)
+    release(&sharedtable.lock);
+    return 0;
 
   // if there's no valid page in shared memory, release now
-  if(!shm) {
-    relesae(&sharedtable.lock);
+  if(!page) {
+    release(&sharedtable.lock);
     return 0;
   }
 
-  shm
-
+  release(&sharedtable.lock);
+  return page;
 }
 
 int
 shmem_count(int page_number)
 {
-  return 1;
+ return sharedtable.pages[page_number].ref_count;
 }
 
-// check if a process has access to shared memory at a given page
-bool
-owns_shmem(int page_number)
+int
+shares_page(struct proc *p, struct shared_page *page)
 {
-  pde_t *pgdir = get_pgdir();
-
-
+  pte_t *entry;
+  entry = walkpgdir(p->pgdir, page->addr, 0);
+  if(*entry & PTE_P)
+    return 1;
+  return 0;
 }
-

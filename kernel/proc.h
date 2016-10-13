@@ -74,15 +74,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  struct shared *shared;       // Shared memory info
 };
 
-// struct for storing information related to shared memory
-struct shared {
-  void *p; // pointer to the page of shared memory
-  void *e; // end of the shared memory page
+struct shared_page {
+  char *addr; // pointer to the page of shared memory
   int ref_count; // number of references to shared memory
-};
+}; 
 
 // Process memory is laid out contiguously, low addresses first:
 //   text

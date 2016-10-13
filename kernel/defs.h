@@ -7,6 +7,7 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
+struct shared_page;
 struct spinlock;
 struct stat;
 struct ProcessInfo;
@@ -158,24 +159,25 @@ void            uartintr(void);
 void            uartputc(int);
 
 // vm.c
-void            seginit(void);
-void            kvmalloc(void);
-void            vmenable(void);
-pde_t*          setupkvm(void);
-char*           uva2ka(pde_t*, char*);
-int             allocuvm(pde_t*, uint, uint);
-int             deallocuvm(pde_t*, uint, uint);
-void            freevm(pde_t*);
-void            inituvm(pde_t*, char*, uint);
-int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
-pde_t*          copyuvm(pde_t*, uint);
-void            switchuvm(struct proc*);
-void            switchkvm(void);
-int             copyout(pde_t*, uint, void*, uint);
-void            shmeminit(void);
-void* 					shmem_access(int);
-int 					  shmem_count(int);
-struct shared*	setup_shmem(int);
+void                seginit(void);
+void                kvmalloc(void);
+void                vmenable(void);
+pde_t*              setupkvm(void);
+char*               uva2ka(pde_t*, char*);
+int                 allocuvm(pde_t*, uint, uint);
+int                 deallocuvm(pde_t*, uint, uint);
+void                freevm(pde_t*);
+void                inituvm(pde_t*, char*, uint);
+int                 loaduvm(pde_t*, char*, struct inode*, uint, uint);
+pde_t*              copyuvm(pde_t*, uint);
+void                switchuvm(struct proc*);
+void                switchkvm(void);
+int                 copyout(pde_t*, uint, void*, uint);
+int                 shares_page(struct proc*, struct shared_page*);
+void                shmeminit(void);
+void* 					    shmem_access(int);
+int 					      shmem_count(int);
+struct shared_page*	setup_shmem(int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
