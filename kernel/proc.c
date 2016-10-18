@@ -39,6 +39,7 @@ allocproc(void)
   char *sp;
 
   acquire(&ptable.lock);
+  acquire(&sharedtable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == UNUSED)
       goto found;
@@ -48,6 +49,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->shared_page_number = -1;
+  release(&sharedtable.lock);
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -127,6 +130,7 @@ growproc(int n)
 // Create a new process copying p as the parent.
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
+// Additionally, copy any information about shared memory.
 int
 fork(void)
 {
@@ -159,12 +163,14 @@ fork(void)
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
+  shmem_share_with_child(proc, np);
   return pid;
 }
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
+// Update the ref count on any shared pages it is using.
 void
 exit(void)
 {
@@ -181,6 +187,7 @@ exit(void)
       proc->ofile[fd] = 0;
     }
   }
+
 
   iput(proc->cwd);
   proc->cwd = 0;
@@ -224,6 +231,7 @@ wait(void)
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
+        shmem_leave(p, p->shared_page_number);
         kfree(p->kstack);
         p->kstack = 0;
         freevm(p->pgdir);
@@ -488,9 +496,9 @@ getprocs(struct ProcessInfo *procTable)
   static char *states[] = {
   [UNUSED]    "UNUSED",
   [EMBRYO]    "EMBRYO",
-  [SLEEPING]  "SLEEP ",
+  [SLEEPING]  "SLEEP",
   [RUNNABLE]  "RUNBLE",
-  [RUNNING]   "RUN   ",
+  [RUNNING]   "RUNNING",
   [ZOMBIE]    "ZOMBIE"
   };
   struct proc *p;

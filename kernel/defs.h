@@ -7,7 +7,7 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
-struct shared_page;
+struct SharedPage;
 struct spinlock;
 struct stat;
 struct ProcessInfo;
@@ -173,11 +173,13 @@ pde_t*              copyuvm(pde_t*, uint);
 void                switchuvm(struct proc*);
 void                switchkvm(void);
 int                 copyout(pde_t*, uint, void*, uint);
-int                 shares_page(struct proc*, struct shared_page*);
+int                 shares_page(struct proc*, struct SharedPage);
 void                shmeminit(void);
 void* 					    shmem_access(int);
 int 					      shmem_count(int);
-struct shared_page*	setup_shmem(int);
+void*             	setup_shmem(int);
+int             	  shmem_leave(struct proc*, int);
+int             	  shmem_share_with_child(struct proc*, struct proc*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

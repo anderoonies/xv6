@@ -102,6 +102,7 @@ static int (*syscalls[])(void) = {
 [SYS_sbrk]         sys_sbrk,
 [SYS_shmem_access] sys_shmem_access,
 [SYS_shmem_count]  sys_shmem_count,
+[SYS_shmem_leave]  sys_shmem_leave,
 [SYS_sleep]        sys_sleep,
 [SYS_unlink]       sys_unlink,
 [SYS_wait]         sys_wait,

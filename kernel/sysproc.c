@@ -20,6 +20,19 @@ argpt(int n, struct ProcessInfo **pi)
   return 0;
 }
 
+// Fetch the nth word-sized system call argument as a ptr to a 
+// proc. Return that address.
+int
+argproc(int n, struct proc **p)
+{
+  int i;
+  
+  if(argint(n, &i) < 0)
+    return -1;
+  *p = (struct proc*)i;
+  return 0;
+}
+
 int
 sys_fork(void)
 {
@@ -124,7 +137,10 @@ sys_shmem_access(void)
   int page_number;
   if(argint(0, &page_number) < 0)
     return -1;
-  return (int)shmem_access(page_number);
+  if(page_number < 0)
+    return -1;
+  char *pa = shmem_access(page_number);
+  return (int)pa;
 }
 
 int
@@ -136,4 +152,31 @@ sys_shmem_count(void)
     return -1;
 
   return shmem_count(page_number);
+}
+
+int
+sys_shmem_share_with_child(void)
+{
+  struct proc *parent;
+  struct proc *child;
+
+  if(argproc(0, &parent) < 0)
+    return -1;
+  if(argproc(1, &child) < 0)
+    return -1;
+
+  return shmem_share_with_child(parent, child);
+}
+int
+sys_shmem_leave(void)
+{
+  int page_number;
+  struct proc *p;
+
+  if(argproc(0, &p) < 0)
+    return -1;
+  if(argint(1, &page_number) < 0)
+    return -1;
+
+  return shmem_leave(p, page_number);
 }

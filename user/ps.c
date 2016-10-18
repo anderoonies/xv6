@@ -8,14 +8,14 @@ main(int argc, char **argv)
 {
   enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
   static char *states[] = {
-  [UNUSED]    "UNUSED  ",
-  [EMBRYO]    "EMBRYO  ",
+  [UNUSED]    "UNUSED",
+  [EMBRYO]    "EMBRYO",
   [SLEEPING]  "SLEEPING",
   [RUNNABLE]  "RUNNABLE",
-  [RUNNING]   "RUNNING ",
-  [ZOMBIE]    "ZOMBIE  "
+  [RUNNING]   "RUNNING",
+  [ZOMBIE]    "ZOMBIE"
   };
-	struct ProcessInfo procTable[20];
+	struct ProcessInfo procTable[64];
   int numProcs = getprocs(procTable);
   struct ProcessInfo *p = procTable;
   for(p = procTable; p < &procTable[numProcs]; p++) {

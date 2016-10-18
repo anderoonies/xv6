@@ -20,6 +20,8 @@ int sys_ps(void);
 int sys_getprocs(void);
 int sys_shmem_access(void);
 int sys_shmem_count(void);
+int sys_shmem_share_with_child(void);
+int sys_shmem_leave(void);
 int sys_read(void);
 int sys_sbrk(void);
 int sys_sleep(void);

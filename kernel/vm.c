@@ -368,75 +368,114 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
-// Struct for keeping track of shared memory
-struct {
-  struct spinlock lock;
-  struct shared_page pages[4];
-} sharedtable;
 
 void shmeminit()
 {
   initlock(&sharedtable.lock, "shared");
+  struct SharedPage page1;
+  page1.va = (void*)(USERTOP-PGSIZE);
+  page1.pa = (void*)NULL;
+  page1.ref_count = 0;
+  struct SharedPage page2;
+  page2.va = (void*)(USERTOP-2*PGSIZE);
+  page2.pa = (void*)NULL;
+  page2.ref_count = 0;
+  struct SharedPage page3;
+  page3.va = (void*)(USERTOP-3*PGSIZE);
+  page3.pa = (void*)NULL;
+  page3.ref_count = 0;
+  struct SharedPage page4;
+  page4.va = (void*)(USERTOP-4*PGSIZE);
+  page4.pa = (void*)NULL;
+  page4.ref_count = 0;
+  sharedtable.pages[0] = page1;
+  sharedtable.pages[1] = page2;
+  sharedtable.pages[2] = page3;
+  sharedtable.pages[3] = page4;
 }
 
 void*
 shmem_access(int page_number)
 {
-  struct shared_page *page;
-  page = setup_shmem(page_number);
-  return page;
+  if(page_number < 0)
+    return (void*)NULL;
+  void* va = setup_shmem(page_number);
+  return va;
 }
 
 // Set up the shared memory in the page table
-struct shared_page *
+void*
 setup_shmem(int page_number)
 {
   char *mem;
-  struct shared_page *page = NULL;
+  struct SharedPage *page;
   acquire(&sharedtable.lock);
-  // if the page is free (or we own it!) we'll use this one
-  if(sharedtable.pages[page_number].ref_count == 0 ||
-      shares_page(proc, &sharedtable.pages[page_number]))
+  if(sharedtable.pages[page_number].ref_count == 0) {
+    // if the page is empty, go ahead
     page = &sharedtable.pages[page_number];
-
-  // allocate physical memory
-  mem = kalloc();
-  // if there's none left, return now
-  if(!mem) {
-    release(&sharedtable.lock);
-    return 0;
-  }
-  
-  // store this in the shared memory page
-  sharedtable.pages[page_number].addr = mem;
-
-  // map the page to physical memory
-  if(mappages(proc->pgdir, page->addr, PGSIZE, (uint)mem, PTE_W)<0)
-    release(&sharedtable.lock);
-    return 0;
-
-  // if there's no valid page in shared memory, release now
-  if(!page) {
-    release(&sharedtable.lock);
-    return 0;
+    mem = kalloc();
+    page->pa = mem;
+    mappages(proc->pgdir, page->va, PGSIZE, (uint)mem, PTE_W|PTE_U);
+  } else if (shares_page(proc, sharedtable.pages[page_number])) {
+    page = &sharedtable.pages[page_number];
   }
 
+  page->ref_count++;
+  proc->shared_page_number = page_number;
   release(&sharedtable.lock);
-  return page;
+
+  return (void*)page->va;
 }
 
 int
 shmem_count(int page_number)
 {
- return sharedtable.pages[page_number].ref_count;
+ acquire(&sharedtable.lock);
+ int ref_count = sharedtable.pages[page_number].ref_count;
+ release(&sharedtable.lock);
+ return ref_count;
 }
 
 int
-shares_page(struct proc *p, struct shared_page *page)
+shares_page(struct proc *p, struct SharedPage page)
 {
   pte_t *entry;
-  entry = walkpgdir(p->pgdir, page->addr, 0);
+  entry = walkpgdir(p->pgdir, page.pa, 0);
   if(*entry & PTE_P)
     return 1;
   return 0;
+}
+
+int
+shmem_share_with_child(struct proc *parent, struct proc *child)
+{
+  if(parent->shared_page_number < 0)
+    return 0;
+  acquire(&sharedtable.lock);
+  char* pa = sharedtable.pages[parent->shared_page_number].pa;
+  char* va = sharedtable.pages[parent->shared_page_number].va;
+  mappages(child->pgdir, va, PGSIZE, (uint)pa, PTE_W|PTE_U);
+  sharedtable.pages[child->shared_page_number].ref_count++;
+  release(&sharedtable.lock);
+  return 1;
+}
+
+// remove a proc from a shmem page. if it's the last one, clean up.
+int
+shmem_leave(struct proc *p, int page_number)
+{
+  if(page_number < 0)
+    return -1;
+  acquire(&sharedtable.lock);
+  if (sharedtable.pages[page_number].ref_count == 0) {
+    release(&sharedtable.lock);
+    return -1;
+  }
+  sharedtable.pages[page_number].ref_count--;
+  if(sharedtable.pages[page_number].ref_count == 0) {
+    kfree((char*)sharedtable.pages[page_number].pa);
+    sharedtable.pages[page_number].pa = (void*)NULL;
+  }
+  release(&sharedtable.lock);
+  return 1;
 }
