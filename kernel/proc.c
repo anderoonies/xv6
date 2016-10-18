@@ -39,7 +39,6 @@ allocproc(void)
   char *sp;
 
   acquire(&ptable.lock);
-  acquire(&sharedtable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == UNUSED)
       goto found;
@@ -50,7 +49,6 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->shared_page_number = -1;
-  release(&sharedtable.lock);
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -163,7 +161,7 @@ fork(void)
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
-  shmem_share_with_child(proc, np);
+  //shmem_share_with_child(proc, np);
   return pid;
 }
 

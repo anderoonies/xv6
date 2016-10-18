@@ -68,6 +68,7 @@ whenSharingAPage_ParentSeesChangesMadeByChild()
   sharedPage[0] = 42;
 
   int pid = fork();
+  printf(1, "\npid: %d", pid);
   if(pid == 0){
     // in child
     char* childsSharedPage = shmem_access(0);
